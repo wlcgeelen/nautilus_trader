@@ -26,48 +26,22 @@ from nautilus_trader.adapters.binance.http.error import BinanceServerError
 from nautilus_trader.common.component import LiveClock
 from nautilus_trader.common.component import Logger
 from nautilus_trader.common.enums import LogColor
-from nautilus_trader.core.nautilus_pyo3 import HttpClient
-from nautilus_trader.core.nautilus_pyo3 import HttpMethod
-from nautilus_trader.core.nautilus_pyo3 import HttpResponse
-from nautilus_trader.core.nautilus_pyo3 import Quota
-from nautilus_trader.core.nautilus_pyo3 import ed25519_signature
-from nautilus_trader.core.nautilus_pyo3 import hmac_signature
-from nautilus_trader.core.nautilus_pyo3 import rsa_signature
+from nautilus_trader.core.nautilus_pyo3 import HttpClient, HttpMethod, HttpResponse, Quota
+from nautilus_trader.core.nautilus_pyo3 import ed25519_signature, hmac_signature, rsa_signature
 
 
 class BinanceHttpClient:
     """
     Provides a Binance asynchronous HTTP client.
-
-    Parameters
-    ----------
-    clock : LiveClock
-        The clock for the client.
-    api_key : str
-        The Binance API key for requests.
-    api_secret : str
-        The Binance API secret for signed requests.
-    key_type : BinanceKeyType, default 'HMAC'
-        The private key cryptographic algorithm type.
-    rsa_private_key : str, optional
-        The RSA private key for RSA signing.
-    ed25519_private_key : str, optional
-        The Ed25519 private key for Ed25519 signing.
-    base_url : str, optional
-        The base endpoint URL for the client.
-    ratelimiter_quotas : list[tuple[str, Quota]], optional
-        The keyed rate limiter quotas for the client.
-    ratelimiter_quota : Quota, optional
-        The default rate limiter quota for the client.
-
+    Modified to allow unauthenticated use (no API key or secret required).
     """
 
     def __init__(
         self,
         clock: LiveClock,
-        api_key: str,
-        api_secret: str,
-        base_url: str,
+        api_key: str | None = None,
+        api_secret: str | None = None,
+        base_url: str | None = None,
         key_type: BinanceKeyType = BinanceKeyType.HMAC,
         rsa_private_key: str | None = None,
         ed25519_private_key: str | None = None,
@@ -76,24 +50,27 @@ class BinanceHttpClient:
     ) -> None:
         self._clock: LiveClock = clock
         self._log: Logger = Logger(type(self).__name__)
-        self._key: str = api_key
 
-        self._base_url: str = base_url
-        self._secret: str = api_secret
+        # allow None keys
+        self._key: str | None = api_key
+        self._secret: str | None = api_secret
+        self._base_url: str = base_url or "https://fapi.binance.com"
         self._key_type: BinanceKeyType = key_type
         self._rsa_private_key: str | None = rsa_private_key
         self._ed25519_private_key: bytes | None = None
+
         if ed25519_private_key:
-            # Decode base64 ASN.1/DER format
             key_bytes = base64.b64decode(ed25519_private_key)
-            # ASN.1/DER structure: the 32-byte seed is typically at the end
             self._ed25519_private_key = key_bytes[-32:]
 
+        # Only include X-MBX-APIKEY header if provided
         self._headers: dict[str, Any] = {
             "Content-Type": "application/json",
             "User-Agent": nautilus_trader.NAUTILUS_USER_AGENT,
-            "X-MBX-APIKEY": api_key,
         }
+        if api_key:
+            self._headers["X-MBX-APIKEY"] = api_key
+
         self._client = HttpClient(
             keyed_quotas=ratelimiter_quotas or [],
             default_quota=ratelimiter_default_quota,
@@ -112,7 +89,7 @@ class BinanceHttpClient:
         return self._base_url
 
     @property
-    def api_key(self) -> str:
+    def api_key(self) -> str | None:
         """
         Return the Binance API key being used by the client.
 
@@ -140,6 +117,8 @@ class BinanceHttpClient:
         return urllib.parse.urlencode(params)
 
     def _get_sign(self, data: str) -> str:
+        if not self._secret:
+            raise RuntimeError("Cannot sign request: no api_secret provided.")
         match self._key_type:
             case BinanceKeyType.HMAC:
                 return hmac_signature(self._secret, data)
@@ -152,8 +131,7 @@ class BinanceHttpClient:
                     raise ValueError("`ed25519_private_key` was `None`")
                 return ed25519_signature(self._ed25519_private_key, data)
             case _:
-                # Theoretically unreachable but retained to keep the match exhaustive
-                raise ValueError(f"Unsupported key type, was '{self._key_type.value}'")
+                raise ValueError(f"Unsupported key type: '{self._key_type.value}'")
 
     async def sign_request(
         self,
@@ -162,6 +140,15 @@ class BinanceHttpClient:
         payload: dict[str, str] | None = None,
         ratelimiter_keys: list[str] | None = None,
     ) -> Any:
+        # if no secret, skip signing completely and just send
+        if not self._secret:
+            return await self.send_request(
+                http_method,
+                url_path,
+                payload=payload,
+                ratelimiter_keys=ratelimiter_keys,
+            )
+
         if payload is None:
             payload = {}
         query_string = self._prepare_params(payload)
@@ -183,7 +170,7 @@ class BinanceHttpClient:
     ) -> bytes:
         if payload:
             url_path += "?" + urllib.parse.urlencode(payload)
-            payload = None  # Don't send payload in the body
+            payload = None
 
         self._log.debug(f"{url_path} {payload}", LogColor.MAGENTA)
 
@@ -195,25 +182,13 @@ class BinanceHttpClient:
             keys=ratelimiter_keys,
         )
 
-        response_body = response.body
-
+        body = response.body
         if response.status >= 400:
             try:
-                message = msgspec.json.decode(response_body) if response_body else None
+                message = msgspec.json.decode(body) if body else None
             except msgspec.DecodeError:
-                message = response_body.decode()
+                message = body.decode()
+            err_cls = BinanceServerError if response.status >= 500 else BinanceClientError
+            raise err_cls(status=response.status, message=message, headers=response.headers)
 
-            if response.status >= 500:
-                raise BinanceServerError(
-                    status=response.status,
-                    message=message,
-                    headers=response.headers,
-                )
-            else:
-                raise BinanceClientError(
-                    status=response.status,
-                    message=message,
-                    headers=response.headers,
-                )
-
-        return response.body
+        return body
