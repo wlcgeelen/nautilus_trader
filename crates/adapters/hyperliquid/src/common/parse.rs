@@ -162,6 +162,34 @@ where
     }
 }
 
+/// Serialize vector of decimals as strings
+pub fn serialize_vec_decimal_as_str<S>(
+    decimals: &Vec<Decimal>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    use serde::ser::SerializeSeq;
+    let mut seq = serializer.serialize_seq(Some(decimals.len()))?;
+    for decimal in decimals {
+        seq.serialize_element(&decimal.normalize().to_string())?;
+    }
+    seq.end()
+}
+
+/// Deserialize vector of decimals from strings
+pub fn deserialize_vec_decimal_from_str<'de, D>(deserializer: D) -> Result<Vec<Decimal>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let strings = Vec::<String>::deserialize(deserializer)?;
+    strings
+        .into_iter()
+        .map(|s| Decimal::from_str(&s).map_err(serde::de::Error::custom))
+        .collect()
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Normalization and Validation Functions
 ////////////////////////////////////////////////////////////////////////////////

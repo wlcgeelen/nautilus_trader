@@ -92,10 +92,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
         .build();
 
-    // TODO: sign properly; below is a placeholder signature (r,s,v must be valid!)
+    // NOTE: This example uses placeholder signature values for demonstration only
     let payload = ActionPayload {
         action,
-        nonce: 0, // e.g., time-based nonce or your NonceManager
+        nonce: 0,
         signature: SignatureData {
             r: "0x0".into(),
             s: "0x0".into(),

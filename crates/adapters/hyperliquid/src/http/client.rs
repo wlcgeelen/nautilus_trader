@@ -288,6 +288,24 @@ impl HyperliquidHttpClient {
         serde_json::from_value(response).map_err(Error::Serde)
     }
 
+    /// Get all open orders for a user.
+    pub async fn info_open_orders(&self, user: &str) -> Result<Value> {
+        let request = InfoRequest::open_orders(user);
+        self.send_info_request(&request).await
+    }
+
+    /// Get frontend open orders (includes more detail) for a user.
+    pub async fn info_frontend_open_orders(&self, user: &str) -> Result<Value> {
+        let request = InfoRequest::frontend_open_orders(user);
+        self.send_info_request(&request).await
+    }
+
+    /// Get clearinghouse state (balances, positions, margin) for a user.
+    pub async fn info_clearinghouse_state(&self, user: &str) -> Result<Value> {
+        let request = InfoRequest::clearinghouse_state(user);
+        self.send_info_request(&request).await
+    }
+
     /// Generic info request method that returns raw JSON (useful for new endpoints and testing).
     pub async fn send_info_request_raw(&self, request: &InfoRequest) -> Result<Value> {
         self.send_info_request(request).await

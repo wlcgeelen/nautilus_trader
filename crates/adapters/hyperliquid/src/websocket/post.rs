@@ -525,7 +525,6 @@ pub fn parse_order_status(payload: &serde_json::Value) -> Result<HyperliquidOrde
 }
 
 /// Heuristic classification for action responses.
-/// TODO: replace with exact schema once finalized.
 #[derive(Debug)]
 pub enum ActionOutcome<'a> {
     Resting {

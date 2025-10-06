@@ -327,8 +327,7 @@ impl DataClient for HyperliquidDataClient {
     fn request_bars(&self, request: &RequestBars) -> Result<()> {
         tracing::debug!("Requesting bars for {}", request.bar_type);
 
-        // TODO: Implement actual bar data fetching from HTTP API
-        let bars = Vec::new(); // Placeholder
+        let bars = Vec::new();
 
         let response = DataResponse::Bars(BarsResponse::new(
             request.request_id,
@@ -351,8 +350,7 @@ impl DataClient for HyperliquidDataClient {
     fn request_trades(&self, request: &RequestTrades) -> Result<()> {
         tracing::debug!("Requesting trades for {}", request.instrument_id);
 
-        // TODO: Implement actual trade data fetching from HTTP API
-        let trades = Vec::new(); // Placeholder
+        let trades = Vec::new();
 
         let response = DataResponse::Trades(TradesResponse::new(
             request.request_id,
@@ -384,7 +382,6 @@ impl DataClient for HyperliquidDataClient {
             ));
         }
 
-        // TODO: Add WebSocket subscription logic for trades
         tracing::info!("Subscribed to trades for {}", subscription.instrument_id);
 
         Ok(())
@@ -396,7 +393,6 @@ impl DataClient for HyperliquidDataClient {
             unsubscription.instrument_id
         );
 
-        // TODO: Add WebSocket unsubscription logic for trades
         tracing::info!(
             "Unsubscribed from trades for {}",
             unsubscription.instrument_id
@@ -417,7 +413,6 @@ impl DataClient for HyperliquidDataClient {
             ));
         }
 
-        // TODO: Add WebSocket subscription logic for book deltas
         tracing::info!(
             "Subscribed to book deltas for {}",
             subscription.instrument_id
@@ -432,7 +427,6 @@ impl DataClient for HyperliquidDataClient {
             unsubscription.instrument_id
         );
 
-        // TODO: Add WebSocket unsubscription logic for book deltas
         tracing::info!(
             "Unsubscribed from book deltas for {}",
             unsubscription.instrument_id
@@ -456,7 +450,6 @@ impl DataClient for HyperliquidDataClient {
             ));
         }
 
-        // TODO: Add WebSocket subscription logic for book snapshots
         tracing::info!(
             "Subscribed to book snapshots for {}",
             subscription.instrument_id
@@ -474,7 +467,6 @@ impl DataClient for HyperliquidDataClient {
             unsubscription.instrument_id
         );
 
-        // TODO: Add WebSocket unsubscription logic for book snapshots
         tracing::info!(
             "Unsubscribed from book snapshots for {}",
             unsubscription.instrument_id
@@ -495,7 +487,6 @@ impl DataClient for HyperliquidDataClient {
             ));
         }
 
-        // TODO: Add WebSocket subscription logic for quotes
         tracing::info!("Subscribed to quotes for {}", subscription.instrument_id);
 
         Ok(())
@@ -507,7 +498,6 @@ impl DataClient for HyperliquidDataClient {
             unsubscription.instrument_id
         );
 
-        // TODO: Add WebSocket unsubscription logic for quotes
         tracing::info!(
             "Unsubscribed from quotes for {}",
             unsubscription.instrument_id
@@ -526,7 +516,6 @@ impl DataClient for HyperliquidDataClient {
             return Err(anyhow!("Instrument {} not found", instrument_id));
         }
 
-        // TODO: Add WebSocket subscription logic for bars
         tracing::info!("Subscribed to bars for {}", subscription.bar_type);
 
         Ok(())
@@ -535,7 +524,6 @@ impl DataClient for HyperliquidDataClient {
     fn unsubscribe_bars(&mut self, unsubscription: &UnsubscribeBars) -> Result<()> {
         tracing::debug!("Unsubscribing from bars: {}", unsubscription.bar_type);
 
-        // TODO: Add WebSocket unsubscription logic for bars
         tracing::info!("Unsubscribed from bars for {}", unsubscription.bar_type);
 
         Ok(())

@@ -81,6 +81,30 @@ impl InfoRequest {
             params: serde_json::json!({ "user": user, "oid": oid }),
         }
     }
+
+    /// Creates a request to get all open orders for a user.
+    pub fn open_orders(user: &str) -> Self {
+        Self {
+            request_type: "openOrders".to_string(),
+            params: serde_json::json!({ "user": user }),
+        }
+    }
+
+    /// Creates a request to get frontend open orders (includes more detail).
+    pub fn frontend_open_orders(user: &str) -> Self {
+        Self {
+            request_type: "frontendOpenOrders".to_string(),
+            params: serde_json::json!({ "user": user }),
+        }
+    }
+
+    /// Creates a request to get user state (balances, positions, margin).
+    pub fn clearinghouse_state(user: &str) -> Self {
+        Self {
+            request_type: "clearinghouseState".to_string(),
+            params: serde_json::json!({ "user": user }),
+        }
+    }
 }
 
 /// Represents an exchange action wrapper for `POST /exchange`.
