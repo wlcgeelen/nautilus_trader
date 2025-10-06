@@ -13,54 +13,54 @@
 #  limitations under the License.
 # -------------------------------------------------------------------------------------------------
 
-from nautilus_trader.adapters.env import get_env_key
+from nautilus_trader.adapters.env import get_env_key_or
 
 
-def get_api_key(is_demo: bool, is_testnet: bool) -> str:
+def get_api_key(is_demo: bool, is_testnet: bool) -> str | None:
     if is_demo and is_testnet:
         raise ValueError("Invalid configuration: both `is_demo` and `is_testnet` were True")
 
     if is_demo:
-        key = get_env_key("BYBIT_DEMO_API_KEY")
+        key = get_env_key_or("BYBIT_DEMO_API_KEY")
         if not key:
             raise ValueError(
                 "BYBIT_DEMO_API_KEY environment variable not set",
             )
         return key
     elif is_testnet:
-        key = get_env_key("BYBIT_TESTNET_API_KEY")
+        key = get_env_key_or("BYBIT_TESTNET_API_KEY")
         if not key:
             raise ValueError(
                 "BYBIT_TESTNET_API_KEY environment variable not set",
             )
         return key
     else:
-        key = get_env_key("BYBIT_API_KEY")
+        key = get_env_key_or("BYBIT_API_KEY")
         if not key:
             raise ValueError("BYBIT_API_KEY environment variable not set")
         return key
 
 
-def get_api_secret(is_demo: bool, is_testnet: bool) -> str:
+def get_api_secret(is_demo: bool, is_testnet: bool) -> str | None:
     if is_demo and is_testnet:
         raise ValueError("Invalid configuration: both `is_demo` and `is_testnet` were True")
 
     if is_demo:
-        secret = get_env_key("BYBIT_DEMO_API_SECRET")
+        secret = get_env_key_or("BYBIT_DEMO_API_SECRET")
         if not secret:
             raise ValueError(
                 "BYBIT_DEMO_API_SECRET environment variable not set",
             )
         return secret
     elif is_testnet:
-        secret = get_env_key("BYBIT_TESTNET_API_SECRET")
+        secret = get_env_key_or("BYBIT_TESTNET_API_SECRET")
         if not secret:
             raise ValueError(
                 "BYBIT_TESTNET_API_SECRET environment variable not set",
             )
         return secret
     else:
-        secret = get_env_key("BYBIT_API_SECRET")
+        secret = get_env_key_or("BYBIT_API_SECRET")
         if not secret:
             raise ValueError("BYBIT_API_SECRET environment variable not set")
         return secret

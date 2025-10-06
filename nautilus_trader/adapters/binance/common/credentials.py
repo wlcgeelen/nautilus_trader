@@ -14,24 +14,24 @@
 # -------------------------------------------------------------------------------------------------
 
 from nautilus_trader.adapters.binance.common.enums import BinanceAccountType
-from nautilus_trader.adapters.env import get_env_key
+from nautilus_trader.adapters.env import get_env_key_or
 
 
-def get_api_key(account_type: BinanceAccountType, is_testnet: bool) -> str:
+def get_api_key(account_type: BinanceAccountType, is_testnet: bool) -> str | None:
     if is_testnet:
         if account_type.is_spot_or_margin:
-            return get_env_key("BINANCE_TESTNET_API_KEY")
+            return get_env_key_or("BINANCE_TESTNET_API_KEY")
         else:
-            return get_env_key("BINANCE_FUTURES_TESTNET_API_KEY")
+            return get_env_key_or("BINANCE_FUTURES_TESTNET_API_KEY")
 
-    return get_env_key("BINANCE_API_KEY")
+    return get_env_key_or("BINANCE_API_KEY")
 
 
-def get_api_secret(account_type: BinanceAccountType, is_testnet: bool) -> str:
+def get_api_secret(account_type: BinanceAccountType, is_testnet: bool) -> str | None:
     if is_testnet:
         if account_type.is_spot_or_margin:
-            return get_env_key("BINANCE_TESTNET_API_SECRET")
+            return get_env_key_or("BINANCE_TESTNET_API_SECRET")
         else:
-            return get_env_key("BINANCE_FUTURES_TESTNET_API_SECRET")
+            return get_env_key_or("BINANCE_FUTURES_TESTNET_API_SECRET")
 
-    return get_env_key("BINANCE_API_SECRET")
+    return get_env_key_or("BINANCE_API_SECRET")
