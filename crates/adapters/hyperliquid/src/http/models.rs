@@ -28,6 +28,41 @@ pub struct HyperliquidMeta {
     pub universe: Vec<HyperliquidAssetInfo>,
 }
 
+/// Represents a single candle (OHLCV bar) from Hyperliquid.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HyperliquidCandle {
+    /// Candle open timestamp in milliseconds.
+    #[serde(rename = "t")]
+    pub timestamp: u64,
+    /// Open price.
+    #[serde(rename = "o")]
+    pub open: String,
+    /// High price.
+    #[serde(rename = "h")]
+    pub high: String,
+    /// Low price.
+    #[serde(rename = "l")]
+    pub low: String,
+    /// Close price.
+    #[serde(rename = "c")]
+    pub close: String,
+    /// Volume.
+    #[serde(rename = "v")]
+    pub volume: String,
+    /// Number of trades (optional).
+    #[serde(rename = "n", default)]
+    pub num_trades: Option<u64>,
+}
+
+/// Response from candleSnapshot endpoint.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HyperliquidCandleSnapshot {
+    /// Array of candles.
+    #[serde(default)]
+    pub data: Vec<HyperliquidCandle>,
+}
+
 /// Represents asset information from the meta endpoint.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -1241,10 +1276,6 @@ pub enum HyperliquidExecModifyStatus {
         error: String,
     },
 }
-
-// -------------------------------------------------------------------------------------------------
-// === Clearinghouse State Models ===
-// -------------------------------------------------------------------------------------------------
 
 /// Complete clearinghouse state response from `POST /info` with `{ "type": "clearinghouseState", "user": "address" }`.
 /// This provides account positions, margin information, and balances.

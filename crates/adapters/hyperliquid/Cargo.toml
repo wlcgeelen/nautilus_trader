@@ -119,7 +119,3 @@ path = "bin/ws_exec.rs"
 [[bin]]
 name = "hyperliquid-ws-post"
 path = "bin/ws_post.rs"
-
-[[bin]]
-name = "hyperliquid-trade-testnet"
-path = "bin/trade_testnet.rs"

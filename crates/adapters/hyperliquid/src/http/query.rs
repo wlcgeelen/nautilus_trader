@@ -105,6 +105,27 @@ impl InfoRequest {
             params: serde_json::json!({ "user": user }),
         }
     }
+
+    /// Creates a request to get candle/bar data.
+    ///
+    /// # Arguments
+    /// * `coin` - The coin symbol (e.g., "BTC")
+    /// * `interval` - The timeframe (e.g., "1m", "5m", "15m", "1h", "4h", "1d")
+    /// * `start_time` - Start timestamp in milliseconds
+    /// * `end_time` - End timestamp in milliseconds
+    pub fn candle_snapshot(coin: &str, interval: &str, start_time: u64, end_time: u64) -> Self {
+        Self {
+            request_type: "candleSnapshot".to_string(),
+            params: serde_json::json!({
+                "req": {
+                    "coin": coin,
+                    "interval": interval,
+                    "startTime": start_time,
+                    "endTime": end_time
+                }
+            }),
+        }
+    }
 }
 
 /// Represents an exchange action wrapper for `POST /exchange`.

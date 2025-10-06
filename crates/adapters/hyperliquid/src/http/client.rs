@@ -180,6 +180,18 @@ impl HyperliquidHttpClient {
         self.is_testnet
     }
 
+    /// Gets the user address derived from the private key (if client has credentials).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::Auth`] if the client has no signer configured.
+    pub fn get_user_address(&self) -> Result<String> {
+        self.signer
+            .as_ref()
+            .ok_or_else(|| Error::auth("No signer configured"))?
+            .address()
+    }
+
     /// Builds the default headers to include with each request (e.g., `User-Agent`).
     fn default_headers() -> HashMap<String, String> {
         HashMap::from([
@@ -304,6 +316,25 @@ impl HyperliquidHttpClient {
     pub async fn info_clearinghouse_state(&self, user: &str) -> Result<Value> {
         let request = InfoRequest::clearinghouse_state(user);
         self.send_info_request(&request).await
+    }
+
+    /// Get candle/bar data for a coin.
+    ///
+    /// # Arguments
+    /// * `coin` - The coin symbol (e.g., "BTC")
+    /// * `interval` - The timeframe (e.g., "1m", "5m", "15m", "1h", "4h", "1d")
+    /// * `start_time` - Start timestamp in milliseconds
+    /// * `end_time` - End timestamp in milliseconds
+    pub async fn info_candle_snapshot(
+        &self,
+        coin: &str,
+        interval: &str,
+        start_time: u64,
+        end_time: u64,
+    ) -> Result<crate::http::models::HyperliquidCandleSnapshot> {
+        let request = InfoRequest::candle_snapshot(coin, interval, start_time, end_time);
+        let response = self.send_info_request(&request).await?;
+        serde_json::from_value(response).map_err(Error::Serde)
     }
 
     /// Generic info request method that returns raw JSON (useful for new endpoints and testing).

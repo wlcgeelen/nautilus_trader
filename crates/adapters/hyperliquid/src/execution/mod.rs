@@ -210,26 +210,48 @@ impl HyperliquidExecutionClient {
         // Use vault address if configured, otherwise use user address
         let account_address = self.config.vault_address.as_ref().unwrap_or(&user_address);
 
-        // Query userState endpoint to get balances and margin info
-        let user_state_request = crate::http::query::InfoRequest {
-            request_type: "clearinghouseState".to_string(),
-            params: serde_json::json!({ "user": account_address }),
-        };
-
-        match self
+        // Query clearinghouseState endpoint to get balances and margin info
+        let clearinghouse_state = self
             .http_client
-            .send_info_request_raw(&user_state_request)
+            .info_clearinghouse_state(account_address)
             .await
-        {
-            Ok(response) => {
-                debug!("Received user state: {:?}", response);
-                Ok(())
-            }
-            Err(e) => {
-                warn!("Failed to refresh account state: {}", e);
-                Err(e.into())
-            }
+            .context("Failed to fetch clearinghouse state")?;
+
+        // Deserialize the response
+        let state: crate::http::models::ClearinghouseState =
+            serde_json::from_value(clearinghouse_state)
+                .context("Failed to deserialize clearinghouse state")?;
+
+        debug!(
+            "Received clearinghouse state: cross_margin_summary={:?}, asset_positions={}",
+            state.cross_margin_summary,
+            state.asset_positions.len()
+        );
+
+        // Parse balances and margins from cross margin summary
+        if let Some(ref cross_margin_summary) = state.cross_margin_summary {
+            let (balances, margins) =
+                crate::common::parse::parse_account_balances_and_margins(cross_margin_summary)
+                    .context("Failed to parse account balances and margins")?;
+
+            let ts_event = if let Some(time_ms) = state.time {
+                nautilus_core::UnixNanos::from(time_ms * 1_000_000)
+            } else {
+                nautilus_core::time::get_atomic_clock_realtime().get_time_ns()
+            };
+
+            // Generate account state event
+            self.core.generate_account_state(
+                balances, margins, true, // reported
+                ts_event,
+            )?;
+
+            info!("Account state updated successfully");
+        } else {
+            warn!("No cross margin summary in clearinghouse state");
         }
+
+        Ok(())
     }
 
     fn get_user_address(&self) -> Result<String> {
@@ -330,12 +352,6 @@ impl ExecutionClient for HyperliquidExecutionClient {
         // Initialize account state
         if let Err(e) = self.update_account_state() {
             warn!("Failed to initialize account state: {}", e);
-        }
-
-        if !self.ws_client.is_connected() {
-            debug!("WebSocket client ready, will connect when needed");
-        } else {
-            debug!("WebSocket client already connected");
         }
 
         self.connected = true;
@@ -539,21 +555,23 @@ impl LiveExecutionClient for HyperliquidExecutionClient {
         info!("Connecting Hyperliquid execution client");
 
         // Ensure instruments are initialized
-        self.ensure_instruments_initialized()?;
+        self.ensure_instruments_initialized_async().await?;
+
+        // Connect WebSocket client
+        let url = crate::common::consts::ws_url(self.config.is_testnet);
+        self.ws_client = HyperliquidWebSocketClient::connect(url).await?;
+
+        // Subscribe to user-specific order updates and fills
+        let user_address = self.get_user_address()?;
+        self.ws_client
+            .subscribe_all_user_channels(&user_address)
+            .await?;
 
         // Initialize account state
-        if let Err(e) = self.update_account_state() {
-            warn!("Failed to initialize account state: {}", e);
-        }
+        self.refresh_account_state().await?;
 
         // Note: Order reconciliation is handled by the execution engine
         // which will call generate_order_status_reports() after connection
-
-        if !self.ws_client.is_connected() {
-            debug!("WebSocket client ready, will connect when needed");
-        } else {
-            debug!("WebSocket client already connected");
-        }
 
         self.connected = true;
         self.core.set_connected(true);
@@ -571,6 +589,9 @@ impl LiveExecutionClient for HyperliquidExecutionClient {
         }
 
         info!("Disconnecting Hyperliquid execution client");
+
+        // Disconnect WebSocket
+        self.ws_client.disconnect().await?;
 
         // Abort any pending tasks
         self.abort_pending_tasks();
@@ -601,10 +622,10 @@ impl LiveExecutionClient for HyperliquidExecutionClient {
         cmd: &GenerateOrderStatusReport,
     ) -> Result<Vec<OrderStatusReport>> {
         // NOTE: Order status reports generation infrastructure is complete:
-        // ✅ HTTP methods: info_open_orders(), info_frontend_open_orders()
-        // ✅ Parsing: parse_order_status_report_from_basic() and parse_order_status_report_from_ws()
-        // ✅ Status mapping: All order statuses and types supported
-        // ⏳ Pending: Instrument cache integration to look up instruments by ID
+        // HTTP methods: info_open_orders(), info_frontend_open_orders()
+        // Parsing: parse_order_status_report_from_basic() and parse_order_status_report_from_ws()
+        // Status mapping: All order statuses and types supported
+        //  Pending: Instrument cache integration to look up instruments by ID
         // Implementation: Fetch via info_frontend_open_orders(), parse each order, filter by cmd params
 
         warn!("generate_order_status_reports requires instrument cache integration");
@@ -625,10 +646,10 @@ impl LiveExecutionClient for HyperliquidExecutionClient {
 
     async fn generate_fill_reports(&self, cmd: GenerateFillReports) -> Result<Vec<FillReport>> {
         // NOTE: Fill reports generation infrastructure is complete:
-        // ✅ HTTP methods: info_user_fills() returns HyperliquidFills
-        // ✅ Parsing: parse_fill_report() with fee handling, liquidity side detection
-        // ✅ Money/Currency: Proper USDC fee integration
-        // ⏳ Pending: Instrument cache integration to look up instruments by symbol
+        // HTTP methods: info_user_fills() returns HyperliquidFills
+        // Parsing: parse_fill_report() with fee handling, liquidity side detection
+        // Money/Currency: Proper USDC fee integration
+        //  Pending: Instrument cache integration to look up instruments by symbol
         // Implementation: Fetch via info_user_fills(), filter by time range, parse each fill
 
         warn!("generate_fill_reports requires instrument cache integration");
@@ -662,10 +683,10 @@ impl LiveExecutionClient for HyperliquidExecutionClient {
             .context("Failed to fetch clearinghouse state")?;
 
         // NOTE: Position status reports infrastructure is complete:
-        // ✅ HTTP methods: info_clearinghouse_state() queries API successfully
-        // ✅ Models: ClearinghouseState, AssetPosition, PositionData all defined
-        // ✅ Parsing: parse_position_status_report() fully implemented
-        // ⏳ Pending: Instrument cache integration to look up instruments by coin symbol
+        // HTTP methods: info_clearinghouse_state() queries API successfully
+        // Models: ClearinghouseState, AssetPosition, PositionData all defined
+        // Parsing: parse_position_status_report() fully implemented
+        //  Pending: Instrument cache integration to look up instruments by coin symbol
         // Implementation: Deserialize response to ClearinghouseState, iterate asset_positions,
         //                parse each with parse_position_status_report(), filter by cmd params
         warn!("Position status report parsing requires instrument cache integration");

@@ -396,8 +396,15 @@ pub enum HyperliquidRejectCode {
 
 impl HyperliquidRejectCode {
     pub fn from_api_error(error_message: &str) -> Self {
-        // Parse error messages from API responses using string matching
-        // This method can be extended if Hyperliquid provides structured error codes
+        // TODO: Research Hyperliquid's actual error response format
+        // Check if they provide:
+        // - Numeric error codes
+        // - Error type/category fields
+        // - Structured error objects
+        // If so, parse those instead of string matching
+
+        // For now, we still fall back to string matching, but this method provides
+        // a clear migration path when better error information becomes available
         Self::from_error_string_internal(error_message)
     }
 
