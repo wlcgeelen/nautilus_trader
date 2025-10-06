@@ -486,6 +486,8 @@ impl BybitWebSocketClient {
                         }
                         BybitWebSocketMessage::Raw(value) => {
                             tracing::debug!("Received raw/unhandled message: {value}");
+                            // Send raw JSON to Python for debugging
+                            call_python_with_json(&callback, &value);
                         }
                     }
                 }
